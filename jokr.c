@@ -4,6 +4,8 @@ FILE *source;
 Atom tokens[256];
 int token_count = 0;
 Expr *NIL_VALUE;
+Atom lookahead_token;
+bool has_lookahead = false;
 
 typedef enum {
   OK,
@@ -155,44 +157,58 @@ bool is_valid_num(char buffer[256], char *end) {
   return *end == '\0' && buffer[0] != '\0';
 }
 
-Atom *lex() {
-  while(1) {
-    char buffer[256];
-    int i = 0;
-    skip_whitespaces();
-    int ch = fgetc(source);
-    if(ch == EOF) break;
+Atom next_token() {
+  Atom token = {.type = NIL};
+  char buffer[256];
+  int i = 0;
+  skip_whitespaces();
+  int ch = fgetc(source);
+  if(ch == EOF) return token;
 
-    if(ch == '(') {
-      tokens[token_count++].type = LPAREN;
-    }
-    else if(ch == ')') {
-      tokens[token_count++].type = RPAREN;
-    }
-    else if(ch == '\'') {
-      consume_subsequent_chars(buffer, &ch, &i);
-      tokens[token_count].type = STRING;
-      tokens[token_count++].symbol = strdup(buffer);
+  if(ch == '(') {
+    token.type = LPAREN;
+  }
+  else if(ch == ')') {
+    token.type = RPAREN;
+  }
+  else if(ch == '\'') {
+    consume_subsequent_chars(buffer, &ch, &i);
+    token.type = STRING;
+    token.symbol = strdup(buffer);
+  }
+  else {
+    consume_subsequent_chars(buffer, &ch, &i);
+    char *end;
+    double d = strtod(buffer, &end);
+
+    if(is_valid_num(buffer, end)) { 
+      token.type = NUM;
+      token.num = d;
     }
     else {
-      consume_subsequent_chars(buffer, &ch, &i);
-      char *end;
-      double d = strtod(buffer, &end);
-      if(is_valid_num(buffer, end)) { 
-        tokens[token_count].type = NUM;
-        tokens[token_count].num = d;
-      }
-      else {
-        tokens[token_count].type = SYMBOL;
-        tokens[token_count].symbol = strdup(buffer);
-      }
-      token_count++;
+      token.type = SYMBOL;
+      token.symbol = strdup(buffer);
     }
   }
-  printf("reached\n");
-  print_tokens(tokens);
-  return tokens;
+  return token;
 }
+
+Atom peek_token_atom() {
+    if (!has_lookahead) {
+        lookahead_token = next_token();
+        has_lookahead = true;
+    }
+    return lookahead_token;
+}
+
+Atom consume_token_atom() {
+    if (has_lookahead) {
+        has_lookahead = false;
+        return lookahead_token;
+    }
+    return next_token();
+}
+
 
 char *read(char* input) { return input; }
 char *eval(char* input) { return input; }
@@ -235,7 +251,6 @@ int main() {
   print_expr(list_nums);
   printf("\n");
 
-  lex();
   fclose(source);
   return 0;
 }
