@@ -1,6 +1,4 @@
 #include "jokr.h"
-#include <ctype.h>
-#include <stdio.h>
 
 FILE *source;
 Atom tokens[256];
@@ -106,8 +104,7 @@ void print_expr(Expr *expr) {
   }
 }
 
-// ex: 1) now char pos is at ) but as it is already consumed we put it push it back
-void go_back(char ch, FILE *source) {
+void go_back(int ch, FILE *source) {
   if (ch != EOF) ungetc(ch, source); 
 }
 
@@ -118,7 +115,7 @@ int peek_token(FILE *f) {
 }
 
 void skip_whitespaces() {
-  char ch = fgetc(source);
+  int ch = fgetc(source);
   while(isspace(ch)) {
     ch = fgetc(source);
   }
@@ -145,11 +142,27 @@ void print_tokens(Atom tokens[256]) {
   }
 }
 
+void consume_subsequent_chars(char buffer[256], int *ch, int *i) {
+  while(*ch != EOF && !isspace(*ch) && !is_paren(*ch)) {
+      buffer[(*i)++] = *ch;
+      *ch = fgetc(source);
+  }
+  buffer[*i] = '\0';
+  go_back(*ch, source);
+}
+
+bool is_valid_num(char buffer[256], char *end) {
+  return *end == '\0' && buffer[0] != '\0';
+}
+
 Atom *lex() {
   while(1) {
+    char buffer[256];
+    int i = 0;
     skip_whitespaces();
-    char ch = fgetc(source);
+    int ch = fgetc(source);
     if(ch == EOF) break;
+
     if(ch == '(') {
       tokens[token_count++].type = LPAREN;
     }
@@ -157,30 +170,15 @@ Atom *lex() {
       tokens[token_count++].type = RPAREN;
     }
     else if(ch == '\'') {
-      char buffer[128];
-      int i = 0;
-      while(ch != EOF && !isspace(ch) && !is_paren(ch)) {
-        buffer[i++] = ch;
-        ch = fgetc(source);
-      }
-      buffer[i] = '\0';
-      go_back(ch, source);
+      consume_subsequent_chars(buffer, &ch, &i);
       tokens[token_count].type = STRING;
       tokens[token_count++].symbol = strdup(buffer);
     }
     else {
-      char buffer[128];
-      int i = 0;
-      while(ch != EOF && !isspace(ch) && !is_paren(ch)) {
-        buffer[i++] = ch;
-        ch = fgetc(source);
-      }
-      buffer[i] = '\0';
-      go_back(ch, source);
-
+      consume_subsequent_chars(buffer, &ch, &i);
       char *end;
       double d = strtod(buffer, &end);
-      if(*end == '\0' && buffer[0] != '\0') { 
+      if(is_valid_num(buffer, end)) { 
         tokens[token_count].type = NUM;
         tokens[token_count].num = d;
       }
@@ -205,8 +203,8 @@ char *repl(char* input) {
 
 int main() {
   init();
-  // source = fopen("./test.scm", "r");
-  source = stdin;
+  source = fopen("./test.scm", "r");
+  // source = stdin;
 
   Expr *n = make_num(42.2839);
   Expr *s = make_symbol("FOO");
@@ -237,14 +235,6 @@ int main() {
   print_expr(list_nums);
   printf("\n");
 
-  while(1) {
-    char *line;
-    size_t size;
-    printf("user>");
-    getline(&line, &size, source);
-    repl(line);
-    printf("%s", line);
-  }
   lex();
   fclose(source);
   return 0;
