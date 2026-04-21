@@ -1,9 +1,11 @@
+#include <stdio.h>
 #include <assert.h>
 #include <stdbool.h>
 #include <stddef.h>
 #include <ctype.h>
 #include <stdint.h>
-#include <stdio.h>
+#include <readline/readline.h>
+#include <readline/history.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -11,46 +13,52 @@ typedef struct Expr Expr;
 
 void print_expr(Expr *expr);
 
+typedef enum {
+  TOK_EOF,
+  TOK_LPAREN,
+  TOK_RPAREN,
+  TOK_SYMBOL,
+  TOK_NUMBER,
+  TOK_STRING
+} TokenType;
 
-typedef enum  {
-  NIL, 
-  SYMBOL,
-  NUM,
-  CONS,
-  STRING,
-  LPAREN,
-  RPAREN,
-  DONE
-} Token_Type;
+typedef enum {
+  EXPR_NIL,
+  EXPR_SYMBOL,
+  EXPR_NUMBER,
+  EXPR_CONS
+} ExprType;
 
 typedef struct {
-  Token_Type type;
+  TokenType type;
   union {
-    double num;
+    double number;
     char *symbol;
   };
-} Atom;
+} Token;
 
-struct Expr {
-  Token_Type type;
+typedef struct Expr {
+  ExprType type;
   union {
-    double num;
-    const char *symbol;
+    double number;
+    char *symbol;
     struct {
-      Expr *car;
-      Expr *cdr;
-    } pair;
+      struct Expr *car;
+      struct Expr *cdr;
+    };
   };
-};
+} Expr;
 
-
-#define CAR(x) ((x)->pair.car)
-#define CDR(x) ((x)->pair.cdr)
-#define is_nil(x) ((x)->type == NIL)
-#define is_num(x) ((x)->type == NUM)
-#define is_symbol(x) ((x)->type == SYMBOL)
-#define is_pair(x) ((x)->type == CONS)
+#define is_nil(x) ((x)->type == EXPR_NIL)
+#define is_num(x) ((x)->type == EXPR_NUMBER)
+#define is_symbol(x) ((x)->type == EXPR_SYMBOL)
+#define is_pair(x) ((x)->type == EXPR_CONS)
 #define is_paren(x) ((x) == '(' || (x) == ')')
+
+Expr *make_number(double x);
+Expr *make_symbol(const char *s);
+Expr *make_cons(Expr *car, Expr *cdr);
+Expr *make_nil(void);
 
 void print_expr(Expr *expr);
 
