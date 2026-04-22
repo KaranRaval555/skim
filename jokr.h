@@ -19,7 +19,6 @@ typedef enum {
   TOK_RPAREN,
   TOK_SYMBOL,
   TOK_NUMBER,
-  TOK_STRING
 } TokenType;
 
 typedef enum {

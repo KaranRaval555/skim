@@ -1,4 +1,5 @@
 #include "jokr.h"
+#include <stdio.h>
 
 Expr *NIL_VALUE;
 
@@ -7,6 +8,14 @@ typedef struct {
   Token lookahead;
   bool has_lookahead;
 } Lexer;
+
+
+Expr *parse_expr(Lexer *lex);
+
+void parse_error(const char *msg) {
+  fprintf(stderr, "Parse error: %s\n", msg);
+  exit(1);
+}
 
 Expr *alloc_expr(ExprType type) {
   Expr *expr = malloc(sizeof(Expr));
@@ -53,11 +62,6 @@ void print_list(Expr *expr) {
 
     if (expr->type == EXPR_CONS)
       putchar(' ');
-  }
-
-  if (expr->type != EXPR_NIL) {
-    printf(" . ");
-    print_expr(expr);
   }
 
   putchar(')');
@@ -159,33 +163,86 @@ Token consume_token(Lexer *lex) {
   return next_token(lex);
 }
 
+Expr *parse_list(Lexer *lex) {
+  Token t = peek_token(lex);
+
+  if(t.type == TOK_EOF) {
+      parse_error("Unexpected EOF");
+  }
+  if(t.type == TOK_RPAREN) {
+    consume_token(lex);
+    return make_nil();
+  }
+
+  Expr *first = parse_expr(lex);
+  Expr *rest = parse_list(lex);
+
+  return make_cons(first, rest);
+}
+
+Expr *parse_expr(Lexer *lex) {
+  Token t = consume_token(lex);
+  switch(t.type) {
+    case TOK_NUMBER:
+      return make_number(t.number);
+    case TOK_SYMBOL:
+      return make_symbol(t.symbol);
+    case TOK_LPAREN:
+      return parse_list(lex);
+    case TOK_RPAREN:
+      parse_error("unexpected ')'");
+      break;
+    case TOK_EOF:
+      parse_error("unexpected EOF");
+      break;
+    default:
+      parse_error("invalid token");  }
+      return NULL;
+}
+
+Expr *eval(Expr *expr) {
+  switch(expr->type) {
+    case EXPR_NIL:
+    case EXPR_NUMBER:
+      return expr;
+    default:
+      parse_error("cannot evaluate symbol and list yet");
+      return NULL;
+  }
+}
+
+void repl() {
+  char line[1024];
+
+  while (1) {
+    printf("> ");
+    fflush(stdout);
+
+    if (!fgets(line, sizeof(line), stdin)) {
+      break;
+    }
+
+    FILE *f = fmemopen(line, strlen(line), "r");
+
+    Lexer lex = {
+      .input = f,
+      .has_lookahead = false
+    };
+
+    Expr *expr = parse_expr(&lex);
+
+    Expr *result = eval(expr);
+
+    print_expr(result);
+    printf("\n");
+
+    fclose(f);
+  }
+}
+
 int main(void) {
   init();
 
-  Expr *n = make_number(42.2839);
-  Expr *s = make_symbol("FOO");
-
-  print_expr(n);
-  printf("\n");
-
-  print_expr(s);
-  printf("\n");
-
-  Expr *list =
-    make_cons(make_number(1),
-    make_cons(make_number(2),
-    make_cons(make_number(3),
-    make_cons(make_number(4),
-    make_cons(make_number(5),
-    make_nil())))));
-
-  Expr *pair = make_cons(make_symbol("a"), make_symbol("b"));
-
-  print_expr(pair);
-  printf("\n");
-
-  print_expr(list);
-  printf("\n");
-
+  repl();
   return 0;
 }
